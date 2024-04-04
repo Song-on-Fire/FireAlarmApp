@@ -4,6 +4,7 @@ const root_dir = require("app-root-path");
 const app = express();
 
 // Swagger UI imports
+const OpenApiValidator = require('express-openapi-validator')
 const swaggerJsdoc = require("swagger-jsdoc");
 const swaggerUi = require('swagger-ui-express');
 
@@ -16,11 +17,12 @@ const morganMiddleware = require(`${root_dir}/src/middleware/logging.js`);
 
 // Environment/Configuration details
 const env = process.env.NODE_ENV || 'development'
+const path = require('path');
 const config = require(`${root_dir}/src/config/config.json`)[env];
 const port = config.port;
 const options = {
     "definition": {
-        "openapi": "3.1.0",
+        "openapi": "3.0.3",
         "info": {
             "title": "Blaze: Your Smart Home Fire Alarm",
             "version": "0.1.0",
@@ -49,6 +51,8 @@ const options = {
     "apis": ["./src/controllers/*.js"]
 };
 
+const openApiSpecification = swaggerJsdoc(options);
+
 // Routes
 const pwa = require(`${root_dir}/src/controllers/pwa.controller.js`);
 const api = require(`${root_dir}/src/controllers/notifications.controller.js`)
@@ -75,6 +79,24 @@ app.use(morganMiddleware);
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
+app.use(
+    OpenApiValidator.middleware({
+        apiSpec: openApiSpecification,
+        validateRequests: true,
+        validateResponses: false,
+    }),
+);
+
+app.use((err, req, res, next) => {
+    if (err.status === 400 || err.status === 500) {
+        res.status(err.status).json({
+            message: err.message,
+            errors: err.errors,
+        });
+    } else {
+        next(err);
+    }
+});
 
 // Applying routes
 app.use("/api", api);
@@ -83,10 +105,16 @@ app.use(express.static('public'));
 
 app.use("/", pwa);
 
+app.use((err, req, res, next) => {
+    res.status(err.status || 500).json({
+        message: err.message,
+        errors: err.errors
+    });
+});
+
 if (env === "development")
     app.use(errorhandler());
     // Setting up Swagger Docs
-    const openApiSpecification = swaggerJsdoc(options);
     app.use("/docs", swaggerUi.serve, swaggerUi.setup(openApiSpecification));
 
 // Initialize DB models and start server

@@ -23,49 +23,53 @@ router.get("/response", logResponse);
 /**
  * @openapi
  * /notify:
- *  post:
- *    summary: Notifies all users in the DB - API
- *    description: Notifies all users in the DB of the notification provided
- *    requestBody:
- *      required: true
- *      content:
- *        application/json:
- *          schema:
- *            type: object
- *            properties:
- *              notification:
- *                type: object
- *                properties:
- *                  title:
- *                    type: string
- *                    description: The title of the displayed notification
- *                    example: Fire Detected!
- *                  message:
- *                    type: string
- *                    description: The message attached to the notification
- *                    example: Fire confirmed in room 104.
- *    responses:
- *      200:
- *        description: Push notification sent successfully
- *        content:
- *          application/json:
- *            schema:
- *              type: object
- *              properties:
- *                totalSubscriptions:
- *                  type: integer
- *                  description: The number of subscriptions the user has (Devices)
- *                  example: 2
- *                successfulNotifications:
- *                  type: integer
- *                  description: The number of notifications that successfully were sent to the user
- *                  example: 1
- *                errors:
- *                  type: array
- *                  description: The list of any errors that occurred when sending notifications
- *                  example: [Error occurred when sending notification]
- *                  items:
- *                    type: string
+ *   post:
+ *     summary: Notifies all users in the DB - API
+ *     description: Notifies all users in the DB of the notification provided
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - notification
+ *             properties:
+ *               notification:
+ *                 type: object
+ *                 required:
+ *                   - title
+ *                   - message
+ *                 properties:
+ *                   title:
+ *                     type: string
+ *                     description: The title of the displayed notification
+ *                     example: "Fire Detected!"
+ *                   message:
+ *                     type: string
+ *                     description: The message attached to the notification
+ *                     example: "Fire confirmed in room 104."
+ *     responses:
+ *       200:
+ *         description: Push notification sent successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 totalSubscriptions:
+ *                   type: integer
+ *                   description: The number of subscriptions the user has (Devices)
+ *                   example: 2
+ *                 successfulNotifications:
+ *                   type: integer
+ *                   description: The number of notifications that successfully were sent to the user
+ *                   example: 1
+ *                 errors:
+ *                   type: array
+ *                   items:
+ *                     type: string
+ *                     example: Error occurred when sending notification
  */
 async function notifyAllUsers (req, res) {
     // TODO Need to add security to ensure only the fire alarm server can call this endpoint
@@ -148,6 +152,7 @@ function getCurrentTimeStamp () {
  *     parameters:
  *       - in: query
  *         name: alarmId
+ *         required: true
  *         schema:
  *           type: string
  *         description: The ID of the alarm to be confirmed
@@ -173,10 +178,9 @@ function getCurrentTimeStamp () {
  *                   example: 1
  *                 errors:
  *                   type: array
- *                   description: The list of any errors that occurred when sending notifications
- *                   example: [Error occurred when sending notification]
  *                   items:
  *                     type: string
+ *                     example: "Error occurred when sending notification"
  *       400:
  *         description: Invalid query parameters
  *         content:
@@ -187,7 +191,7 @@ function getCurrentTimeStamp () {
  *                 error:
  *                   type: string
  *                   description: Invalid/missing query parameter
- *                   example: Missing or incorrect parameters
+ *                   example: "Missing or incorrect parameters"
  *       404:
  *         description: Unable to find alarm, alarm doesn't have user, or user doesn't have subscription
  *         content:
@@ -198,7 +202,7 @@ function getCurrentTimeStamp () {
  *                 error:
  *                   type: string
  *                   description: The error that occurred
- *                   example: Couldn't find alarm with provided alarm ID
+ *                   example: "Couldn't find alarm with provided alarm ID"
  *       500:
  *         description: Unknown server error (Likely DB related)
  *         content:
@@ -208,9 +212,8 @@ function getCurrentTimeStamp () {
  *               properties:
  *                 error:
  *                   type: string
- *                   example: Unknown error occurred
- *
- * */
+ *                   example: "Unknown error occurred"
+ */
 async function confirmAlarm (req, res) {
     // Receives alarm ID from controller -> Gets primary user for alarm from DB -> Notifies primary user of the fire and
     // asks for confirmation -> Wait for response to come from the PWA -> If response not received within 10 seconds,
@@ -287,7 +290,7 @@ async function confirmAlarm (req, res) {
     const currentTime = getCurrentTimeStamp();
     const key = `${alarm.id}-${currentTime}`;
     alarmMap.set(key, [res, alarm.userId, dbSubscriptions.length, successfulNotifications, errors]);
-    await delay(30);
+    await delay(15);
     if (alarmMap.get(key)) {
         alarmMap.delete(key);
         return res.status(200).json({
@@ -309,20 +312,24 @@ async function confirmAlarm (req, res) {
  *     parameters:
  *       - in: query
  *         name: confirmed
+ *         required: true
  *         schema:
  *           type: boolean
  *         description: Whether the alarm has been confirmed or is a false alarm
  *       - in: query
  *         name: userId
+ *         required: true
  *         schema:
- *           type: int
+ *           type: integer
  *         description: The user ID of the user giving response. (Replaced with token in future)
  *     responses:
  *       200:
  *         description: Response received by server
- *         example: Response received
- *         type:
- *           text/html
+ *         content:
+ *           text/plain:
+ *             schema:
+ *               type: string
+ *               example: "Response received."
  *       400:
  *         description: Invalid query parameters
  *         content:
@@ -332,7 +339,7 @@ async function confirmAlarm (req, res) {
  *               properties:
  *                 error:
  *                   type: string
- *                   example: Missing or incorrect parameters
+ *                   example: "Missing or incorrect parameters"
  */
 async function logResponse (req, res) {
     // Receives user response to the confirm alarm prompt and sends the response
