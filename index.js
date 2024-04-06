@@ -79,6 +79,8 @@ app.use(morganMiddleware);
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
+app.use(express.static('public'));
+
 app.use(
     OpenApiValidator.middleware({
         apiSpec: openApiSpecification,
@@ -100,8 +102,6 @@ app.use((err, req, res, next) => {
 
 // Applying routes
 app.use("/api", api);
-
-app.use(express.static('public'));
 
 app.use("/", pwa);
 
