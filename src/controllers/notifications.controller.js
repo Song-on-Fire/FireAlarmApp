@@ -75,7 +75,6 @@ router.get("/response", authenticateToken, logResponse);
  *                     example: Error occurred when sending notification
  */
 async function notifyAllUsers (req, res) {
-    // TODO Need to add security to ensure only the fire alarm server can call this endpoint
     const body = req.body;
 
     const dbSubscriptions = await db.subscription.findAll();

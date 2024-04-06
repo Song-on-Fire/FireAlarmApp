@@ -496,8 +496,6 @@ async function authenticateAdmin (req, res) {
  *               properties:
  *                 data:
  *                   type: array
- *                   items:
- *                     type: string
  */
 async function getAdminDashboardInfo (req, res) {
     // Returns all the information needed for the dashboard.
@@ -512,8 +510,7 @@ async function getAdminDashboardInfo (req, res) {
             data.push([alarms[i].alarmSerial, alarms[i].location, user.username]);
         }
     }
-
-    return res.send(200).json({"data": data});
+    return res.status(200).json({"alarms": data});
 }
 
 
