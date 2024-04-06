@@ -9,6 +9,9 @@ const db = require(`${root_dir}/src/models`);
 const env = process.env.NODE_ENV || 'development'
 const config = require(`${root_dir}/src/config/config.json`)[env];
 
+// Authentication middleware
+const authenticateToken = require(`${root_dir}/src/middleware/auth.js`);
+
 // Web-push setup
 const push = require('web-push');
 const pushDetails = config.push_details;
@@ -17,7 +20,7 @@ push.setVapidDetails(`mailto:${pushDetails.email}`, pushDetails.publicKey, pushD
 // Applying routes
 router.post("/notify", notifyAllUsers);
 router.get("/confirm", confirmAlarm);
-router.get("/response", logResponse);
+router.get("/response", authenticateToken, logResponse);
 
 // Express Routes
 /**
@@ -316,12 +319,6 @@ async function confirmAlarm (req, res) {
  *         schema:
  *           type: boolean
  *         description: Whether the alarm has been confirmed or is a false alarm
- *       - in: query
- *         name: userId
- *         required: true
- *         schema:
- *           type: integer
- *         description: The user ID of the user giving response. (Replaced with token in future)
  *     responses:
  *       200:
  *         description: Response received by server
@@ -330,29 +327,16 @@ async function confirmAlarm (req, res) {
  *             schema:
  *               type: string
  *               example: "Response received."
- *       400:
- *         description: Invalid query parameters
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 error:
- *                   type: string
- *                   example: "Missing or incorrect parameters"
  */
 async function logResponse (req, res) {
     // Receives user response to the confirm alarm prompt and sends the response
-    // TODO: Add validation on the query parameters per openAPI spec
-    // TODO: Needs to retrieve user info based on tokens for selecting the correct response
     const params = req.query;
-    if (!params.confirmed || !params.userId)
-        return res.status(400).json({ 'error': 'Missing or incorrect parameters' });
 
-    const userId = parseInt(params.userId);
-    const confirmed = (params.confirmed === 'true'); // Since params are strings, this converts to the proper type
+    const db_user = await db.user.findOne( {where: { username: req.user.username} })
+
+    const userId = parseInt(db_user.id);
+    const confirmed = params.confirmed
     for (const [key, value] of alarmMap) {
-        console.log(value[1], userId);
         if (value[1] === userId) {
             value[0].status(200).json({
                 'confirmed': confirmed,

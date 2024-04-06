@@ -30,7 +30,7 @@ export async function subscribe() {
 
 // Allows offline support for PWA
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', async () => {
+  addEventListener('load', async () => {
     await navigator.serviceWorker.register('/sw.js');
     console.log('Service Worker Registered');
   });

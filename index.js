@@ -81,6 +81,11 @@ app.use(bodyParser.urlencoded({ extended: true }));
 
 app.use(express.static('public'));
 
+if (env === "development")
+    app.use(errorhandler());
+    // Setting up Swagger Docs
+    app.use("/docs", swaggerUi.serve, swaggerUi.setup(openApiSpecification));
+
 app.use(
     OpenApiValidator.middleware({
         apiSpec: openApiSpecification,
@@ -111,11 +116,6 @@ app.use((err, req, res, next) => {
         errors: err.errors
     });
 });
-
-if (env === "development")
-    app.use(errorhandler());
-    // Setting up Swagger Docs
-    app.use("/docs", swaggerUi.serve, swaggerUi.setup(openApiSpecification));
 
 // Initialize DB models and start server
 db.sequelize.sync({ force: false }).then(function () {
