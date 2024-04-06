@@ -19,14 +19,16 @@ const pushDetails = config.push_details;
 push.setVapidDetails(`mailto:${pushDetails.email}`, pushDetails.publicKey, pushDetails.privateKey);
 
 // Authentication middleware
-const authenticateToken = require(`${root_dir}/src/middleware/auth.js`);
+const {authenticateToken, authenticateController} = require(`${root_dir}/src/middleware/auth.js`);
 
 // Applying routes
 router.post("/subscribe", authenticateToken, subscribe);
 router.post('/alarm', authenticateToken, configureAlarm);
 router.post("/register", registerUser);
-router.post("/login", loginUser)
-router.post("/authenticate", authenticateToken, authenticateUser)
+router.post("/login", loginUser);
+router.post("/authenticate", authenticateToken, authenticateUser);
+router.post("/authenticateAdmin", authenticateToken, authenticateAdmin);
+router.get("/dashboard", authenticateToken, getAdminDashboardInfo);
 
 // Express Routes
 
@@ -192,7 +194,7 @@ async function configureAlarm (req, res) {
     const alarm = await db.alarm.findOne({ where: { alarmSerial: '1' } });
     try {
         if (alarm) {
-            db.user.findOne({ where: {username: 'bcsotty'} }).then(user => {
+            db.user.findOne({ where: {username: 'bcsotty2'} }).then(user => {
                 if (user) {
                     user.setAlarm(alarm)
                         .then( () => {
@@ -430,7 +432,88 @@ async function loginUser (req, res) {
  */
 async function authenticateUser (req, res) {
     const user = req.user;
-    return res.status(200).send(`${user.username} has a valid JWT`)
+    return res.status(200).send(`${user.username} has a valid JWT`);
+}
+
+
+/**
+ * @openapi
+ *
+ * /authenticateAdmin:
+ *   post:
+ *     summary: Checks if user has valid JWT and is an admin.
+ *     description: Checks if user has a valid JWT. Uses the JWT in the authorization header and verifies user is an admin
+ *     parameters:
+ *       - in: header
+ *         name: authorization
+ *         schema:
+ *           type: string
+ *         required: true
+ *     responses:
+ *       200:
+ *         description: The user has a valid JWT
+ *         content:
+ *           text/plain:
+ *             schema:
+ *               type: string
+ *               description: Success message
+ *               example: bcsotty has a valid JWT
+ *       401:
+ *         description: Authentication failed - Invalid JWT or user isn't Admin
+ *       422:
+ *         description: Unprocessable entity - Missing Headers
+ */
+async function authenticateAdmin (req, res) {
+    const user = req.user;
+
+    const db_user = await db.user.findOne({where: { username: user.username}});
+    if (!db_user.admin) {
+        return res.status(401); // Not admin
+    }
+    return res.status(200).send(`${user.username} has a valid JWT and is an admin`);
+}
+
+
+/**
+ * @openapi
+ *
+ * /dashboard:
+ *   get:
+ *     summary: Returns all information needed to populate the dashboard
+ *     parameters:
+ *       - in: header
+ *         name: authorization
+ *         schema:
+ *           type: string
+ *         required: true
+ *     responses:
+ *       200:
+ *         description: Data for the admin dashboard
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: string
+ */
+async function getAdminDashboardInfo (req, res) {
+    // Returns all the information needed for the dashboard.
+    const alarms = await db.alarm.findAll();
+    const data = [];
+
+    for (let i = 0; i < alarms.length; i++) {
+        if (alarms[i].location === "Unknown") {
+            data.push([alarms[i].alarmSerial, alarms[i].location, null]);
+        } else {
+            const user = await db.user.findOne({where: {id: alarms[i].userId}});
+            data.push([alarms[i].alarmSerial, alarms[i].location, user.username]);
+        }
+    }
+
+    return res.send(200).json({"data": data});
 }
 
 

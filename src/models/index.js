@@ -61,7 +61,7 @@ async function insertTestData() {
     if (users.length === 0) {
         // TODO Update to insert via method instead so that passwords are bcrypted so we can actually login
         db.user.create({ firstName: 'Brett', lastName: 'Csotty', username: 'bcsotty', password: '123', email: 'bcsotty@umich.edu', admin: true });
-        db.alarm.create({ alarmSerial: '1', location: 'Apartment room 104'});
+        db.alarm.create({ alarmSerial: '1', location: 'Unknown'});
     }
 }
 

@@ -10,7 +10,7 @@ const env = process.env.NODE_ENV || 'development'
 const config = require(`${root_dir}/src/config/config.json`)[env];
 
 // Authentication middleware
-const authenticateToken = require(`${root_dir}/src/middleware/auth.js`);
+const {authenticateToken, authenticateController} = require(`${root_dir}/src/middleware/auth.js`);
 
 // Web-push setup
 const push = require('web-push');
@@ -18,8 +18,8 @@ const pushDetails = config.push_details;
 push.setVapidDetails(`mailto:${pushDetails.email}`, pushDetails.publicKey, pushDetails.privateKey);
 
 // Applying routes
-router.post("/notify", notifyAllUsers);
-router.get("/confirm", confirmAlarm);
+router.post("/notify", authenticateController, notifyAllUsers);
+router.get("/confirm", authenticateController, confirmAlarm);
 router.get("/response", authenticateToken, logResponse);
 
 // Express Routes
@@ -136,12 +136,28 @@ function delay (seconds) {
 
 
 /**
- * Returns the current UNIX timestamp
- *
- * @return number - The current UNIX timestamp
+ * Returns a datetime
  * */
-function getCurrentTimeStamp () {
-    return Date.now();
+function unixToDate (unix_timestamp) {
+    const date = new Date(unix_timestamp * 1000);
+
+    // Hours part from the timestamp
+    const hours = date.getHours();
+
+    // Minutes part from the timestamp
+    let minutes = date.getMinutes().toString();
+
+    // Seconds part from the timestamp
+    let seconds = date.getSeconds().toString();
+
+    if (minutes.length === 1) {
+        minutes = "0" + minutes
+    }
+    if (seconds.length === 1) {
+        seconds = "0" + minutes
+    }
+
+    return hours + ':' + minutes.substring(-2) + ':' + seconds.substring(-2);
 }
 
 
@@ -159,6 +175,12 @@ function getCurrentTimeStamp () {
  *         schema:
  *           type: string
  *         description: The ID of the alarm to be confirmed
+ *       - in: query
+ *         name: timestamp
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: Unix timestamp alarm was triggered at
  *     responses:
  *       200:
  *         description: The confirmation prompt was successfully sent.
@@ -171,6 +193,10 @@ function getCurrentTimeStamp () {
  *                   type: boolean
  *                   description: True if the alarm was confirmed, False if it wasn't, and null if the user didn't respond in time
  *                   example: null
+ *                 location:
+ *                   type: string
+ *                   description: The location of the alarm
+ *                   example: "University of Michigan - Dearborn"
  *                 totalSubscriptions:
  *                   type: integer
  *                   description: The number of subscriptions the user has (Devices)
@@ -222,8 +248,6 @@ async function confirmAlarm (req, res) {
     // asks for confirmation -> Wait for response to come from the PWA -> If response not received within 10 seconds,
     // return "null", otherwise return "true" or "false" corresponding to confirmed/denied.
     const params = req.query;
-    if (!params.alarmId)
-        return res.status(400).json({"error": "Missing or incorrect parameters"});
 
     const alarmId = params.alarmId;
     let alarm = null;
@@ -251,6 +275,7 @@ async function confirmAlarm (req, res) {
 
     let successfulNotifications = 0;
     let errors = [];
+    const timeStamp = params.timestamp;
 
     for (let subscription of dbSubscriptions) {
         const sub = {
@@ -264,7 +289,7 @@ async function confirmAlarm (req, res) {
 
         const notification = {
             'title': 'Alarm Confirmation',
-            'message': `Alarm was triggered at ${alarm.location}. Please confirm the existence of a fire.`,
+            'message': `Alarm was triggered at ${alarm.location} at ${unixToDate(timeStamp)}. Please confirm the existence of a fire.`,
             'actions': [
                 {
                     'action': 'confirm',
@@ -290,14 +315,14 @@ async function confirmAlarm (req, res) {
     }
 
     // Below code handles communicating back to controller
-    const currentTime = getCurrentTimeStamp();
-    const key = `${alarm.id}-${currentTime}`;
-    alarmMap.set(key, [res, alarm.userId, dbSubscriptions.length, successfulNotifications, errors]);
+    const key = `${alarm.id}-${timeStamp}`;
+    alarmMap.set(key, [res, alarm.userId, dbSubscriptions.length, successfulNotifications, errors, alarm.location]);
     await delay(15);
     if (alarmMap.get(key)) {
         alarmMap.delete(key);
         return res.status(200).json({
             'confirmed': 'null',
+            'location': alarm.location,
             'totalSubscriptions': dbSubscriptions.length,
             'successfulNotifications': successfulNotifications,
             'errors': errors
@@ -321,12 +346,33 @@ async function confirmAlarm (req, res) {
  *         description: Whether the alarm has been confirmed or is a false alarm
  *     responses:
  *       200:
- *         description: Response received by server
+ *         description: The confirmation prompt was successfully sent.
  *         content:
- *           text/plain:
+ *           application/json:
  *             schema:
- *               type: string
- *               example: "Response received."
+ *               type: object
+ *               properties:
+ *                 confirmed:
+ *                   type: boolean
+ *                   description: True if the alarm was confirmed, False if it wasn't, and null if the user didn't respond in time
+ *                   example: null
+ *                 location:
+ *                   type: string
+ *                   description: The location of the alarm
+ *                   example: "University of Michigan - Dearborn"
+ *                 totalSubscriptions:
+ *                   type: integer
+ *                   description: The number of subscriptions the user has (Devices)
+ *                   example: 2
+ *                 successfulNotifications:
+ *                   type: integer
+ *                   description: The number of notifications that successfully were sent to the user
+ *                   example: 1
+ *                 errors:
+ *                   type: array
+ *                   items:
+ *                     type: string
+ *                     example: "Error occurred when sending notification"
  */
 async function logResponse (req, res) {
     // Receives user response to the confirm alarm prompt and sends the response
@@ -336,17 +382,24 @@ async function logResponse (req, res) {
 
     const userId = parseInt(db_user.id);
     const confirmed = params.confirmed
-    for (const [key, value] of alarmMap) {
-        if (value[1] === userId) {
-            value[0].status(200).json({
-                'confirmed': confirmed,
-                'totalSubscriptions': value[2],
-                'successfulNotifications': value[3],
-                'errors': value[4]
-            });
-            alarmMap.delete(key);
+    try {
+        for (const [key, value] of alarmMap) {
+            if (value[1] === userId) {
+                value[0].status(200).json({
+                    'confirmed': confirmed,
+                    "location": value[5],
+                    'totalSubscriptions': value[2],
+                    'successfulNotifications': value[3],
+                    'errors': value[4]
+                });
+                alarmMap.delete(key);
+            }
         }
+    } catch (err) {
+        console.log("Error occurred: ", err)
+        res.status(500).json({"errors": "Error occurred confirming alarm."})
     }
+
     return res.status(200).send('Response received');
 }
 
