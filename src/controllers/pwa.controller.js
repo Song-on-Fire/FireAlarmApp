@@ -154,8 +154,24 @@ async function subscribe (req, res) {
  *
  * /alarm:
  *   post:
- *     summary: Configures new/existing alarms - PWA
- *     description: Sets up and configures new/existing alarms. Currently, hardcoded with no request body for alpha.
+ *     summary: Configures existing alarms - PWA
+ *     description: Sets up and configures new/existing alarms.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               alarmSerial:
+ *                 type: string
+ *                 description: Serial number of alarm to configure
+ *               location:
+ *                 type: string
+ *                 description: The location of the alarm
+ *               username:
+ *                 type: string
+ *                 description: The username of the active user to assign to alarm.
  *     responses:
  *       200:
  *         description: The alarm was successfully linked
@@ -190,19 +206,25 @@ async function subscribe (req, res) {
  *
  */
 async function configureAlarm (req, res) {
-    // This will be used in the future for setting up and configuring existing alarms. Currently just hardcoded for alpha
-    const alarm = await db.alarm.findOne({ where: { alarmSerial: '1' } });
+    const body = req.body;
+    const serial = body.alarmSerial;
+    const location = body.location;
+    const username = body.username;
+
+    const alarm = await db.alarm.findOne({ where: { alarmSerial: serial } });
     try {
         if (alarm) {
-            db.user.findOne({ where: {username: 'bcsotty2'} }).then(user => {
+            alarm.location = location;
+
+            db.user.findOne({ where: {username: username} }).then(user => {
                 if (user) {
                     user.setAlarm(alarm)
                         .then( () => {
-                            console.log('Alarm 1 successfully linked to bcsotty');
+                            console.log(`Alarm successfully linked to ${username}`);
                             return res.status(200).send('Alarm successfully linked');
                         })
                         .catch(err => {
-                            console.error('Error linking alarm to bcsotty: ', err);
+                            console.error(`Error linking alarm to ${username}: `, err);
                             return res.status(500).send('Error linking alarm');
                         });
                 } else {
@@ -494,12 +516,15 @@ async function authenticateAdmin (req, res) {
  *             schema:
  *               type: object
  *               properties:
- *                 data:
+ *                 alarms:
+ *                   type: array
+ *                 users:
  *                   type: array
  */
 async function getAdminDashboardInfo (req, res) {
     // Returns all the information needed for the dashboard.
     const alarms = await db.alarm.findAll();
+    const users = await db.alarm.findAll({attributes: ['name']});
     const data = [];
 
     for (let i = 0; i < alarms.length; i++) {
@@ -510,7 +535,7 @@ async function getAdminDashboardInfo (req, res) {
             data.push([alarms[i].alarmSerial, alarms[i].location, user.username]);
         }
     }
-    return res.status(200).json({"alarms": data});
+    return res.status(200).json({"alarms": data, "users": users});
 }
 
 
