@@ -6,6 +6,8 @@ const { Sequelize } = require('sequelize');
 const root_dir_module = require('app-root-path');
 const root_dir = root_dir_module.toString();
 const sqlite3 = require('sqlite3');
+const bcrypt = require('bcrypt');
+const saltRounds = 10;
 
 
 const basename = 'index.js';
@@ -59,8 +61,19 @@ async function insertTestData() {
     await sequelize.sync({ force: false });
     const users = await db.user.findAll()
     if (users.length === 0) {
-        // TODO Update to insert via method instead so that passwords are bcrypted so we can actually login
-        db.user.create({ firstName: 'Brett', lastName: 'Csotty', username: 'bcsotty', password: '123', email: 'bcsotty@umich.edu', admin: true });
+        bcrypt.hash('1234', saltRounds, function(err, hash) {
+           if (err)
+               console.log('Error salting password for admin: ', err);
+
+           db.user.create({
+               firstName: 'Blaze',
+               lastName: 'Senior Design',
+               username: 'Blaze',
+               password: hash,
+               email: 'FAASeniorDesign@umich.edu',
+               admin: true
+           })
+        });
         db.alarm.create({ alarmSerial: '1', location: 'Unknown'});
     }
 }
