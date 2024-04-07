@@ -39,6 +39,12 @@ router.get("/dashboard", authenticateToken, getAdminDashboardInfo);
  *   post:
  *     summary: Subscribes user to push notifications - PWA
  *     description: Subscribes user specified in request to receive notifications from the web server
+ *     parameters:
+ *       - in: header
+ *         name: authorization
+ *         schema:
+ *           type: string
+ *         required: true
  *     requestBody:
  *       required: true
  *       content:
@@ -156,6 +162,12 @@ async function subscribe (req, res) {
  *   post:
  *     summary: Configures existing alarms - PWA
  *     description: Sets up and configures new/existing alarms.
+ *     parameters:
+ *       - in: header
+ *         name: authorization
+ *         schema:
+ *           type: string
+ *         required: true
  *     requestBody:
  *       required: true
  *       content:

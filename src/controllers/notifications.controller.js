@@ -29,6 +29,12 @@ router.get("/response", authenticateToken, logResponse);
  *   post:
  *     summary: Notifies all users in the DB - API
  *     description: Notifies all users in the DB of the notification provided
+ *     parameters:
+ *       - in: header
+ *         name: authorization
+ *         schema:
+ *           type: string
+ *         required: true
  *     requestBody:
  *       required: true
  *       content:
@@ -180,6 +186,11 @@ function unixToDate (unix_timestamp) {
  *         schema:
  *           type: integer
  *         description: Unix timestamp alarm was triggered at
+ *       - in: header
+ *         name: authorization
+ *         schema:
+ *           type: string
+ *         required: true
  *     responses:
  *       200:
  *         description: The confirmation prompt was successfully sent.
@@ -343,6 +354,11 @@ async function confirmAlarm (req, res) {
  *         schema:
  *           type: boolean
  *         description: Whether the alarm has been confirmed or is a false alarm
+ *       - in: header
+ *         name: authorization
+ *         schema:
+ *           type: string
+ *         required: true
  *     responses:
  *       200:
  *         description: The confirmation prompt was successfully sent.
