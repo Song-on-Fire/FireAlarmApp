@@ -536,7 +536,7 @@ async function authenticateAdmin (req, res) {
 async function getAdminDashboardInfo (req, res) {
     // Returns all the information needed for the dashboard.
     const alarms = await db.alarm.findAll();
-    const users = await db.alarm.findAll({attributes: ['name']});
+    const users = await db.user.findAll({attributes: ['username']});
     const data = [];
 
     for (let i = 0; i < alarms.length; i++) {
