@@ -15,6 +15,14 @@ module.exports = (sequelize, Sequelize) => {
         username: {
             type: Sequelize.STRING,
             allowNull: false
+        },
+        admin: {
+            type: Sequelize.BOOLEAN,
+            defaultValue: false
+        },
+        email: {
+            type: Sequelize.STRING,
+            allowNull: false
         }
     });
     User.associate = function (models) {

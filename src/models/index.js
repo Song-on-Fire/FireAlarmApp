@@ -6,6 +6,8 @@ const { Sequelize } = require('sequelize');
 const root_dir_module = require('app-root-path');
 const root_dir = root_dir_module.toString();
 const sqlite3 = require('sqlite3');
+const bcrypt = require('bcrypt');
+const saltRounds = 10;
 
 
 const basename = 'index.js';
@@ -50,16 +52,29 @@ Object.keys(db).forEach(modelName => {
 db.sequelize = sequelize;
 db.Sequelize = Sequelize;
 
-// Loading test data for demo purposes
-insertTestData();
+if (env === "development")
+    // Loading test data for demo purposes
+    var _ = insertTestData();
+
 
 async function insertTestData() {
     await sequelize.sync({ force: false });
     const users = await db.user.findAll()
     if (users.length === 0) {
-        db.user.create({ firstName: 'Brett', lastName: 'Csotty', username: 'bcsotty', password: '123' });
-        db.user.create({ firstName: 'Nico', lastName: 'Bokhari', username: 'nbokhari', password: '123' });
-        db.alarm.create({ alarmSerial: '1', location: 'Apartment room 104'});
+        bcrypt.hash('1234', saltRounds, function(err, hash) {
+           if (err)
+               console.log('Error salting password for admin: ', err);
+
+           db.user.create({
+               firstName: 'Blaze',
+               lastName: 'Senior Design',
+               username: 'Blaze',
+               password: hash,
+               email: 'FAASeniorDesign@umich.edu',
+               admin: true
+           })
+        });
+        db.alarm.create({ alarmSerial: '1', location: 'Unknown'});
     }
 }
 
